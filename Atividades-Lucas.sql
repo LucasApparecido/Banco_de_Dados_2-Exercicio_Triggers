@@ -15,26 +15,67 @@ group by
 
 --1. Fazer uma função que retorne o valor total de um pedido passando o número do pedido.
 --(nome da função: total_pedidos)
-CREATE
-OR REPLACE FUNCTION total_pedidos(pedido_id float) RETURNS float AS $ $ DECLARE total NUMERIC;
+CREATE OR REPLACE FUNCTION total_pedidos(p_numero_pedido int) RETURNS NUMERIC(10,2) AS
+$$
+DECLARE
+  v_total NUMERIC(10,2);
+BEGIN
+  SELECT sum(p.valor_unitario * ip.quantidade) INTO v_total
+  FROM item_do_pedido ip
+  INNER JOIN produto p ON ip.codigo_produto = p.codigo_produto
+  WHERE ip.num_pedido = p_numero_pedido;
 
-select 
-  SUM(p.valor_unitario * i.quantidade) into total
-from
-  item_do_pedido i
-  produto p
-  pedido pe
-where
-  i.codigo_produto = p.codigo_produto
-  and i.num_pedido = pe.pedido_id;
-
-$ $ LANGUAGE 'plpgsql';
+  RETURN COALESCE(v_total, 0);
+END;
+$$ LANGUAGE plpgsql;
 
 --3. Alterar a tabela de produto adicionando a coluna quantidade_em_estoque do tipo smallint;
---5. Fazer uma função que retorno a quantidade de clientes que já compraram um determinado produto 
---(passando o código do produto como parâmetro) (nome da função: produto_quantidade_clientes)
+ALTER TABLE produto ADD COLUMN quantidade_em_estoque smallint;
+
+--5. Fazer uma função que retorno a quantidade de clientes que já compraram um determinado produto (passando o código do produto como parâmetro) (nome da função: produto_quantidade_clientes)
+CREATE OR REPLACE FUNCTION produto_quantidade_clientes(p_codigo_produto int) RETURNS bigint AS
+$$
+DECLARE
+  v_total bigint;
+BEGIN
+  SELECT count(DISTINCT p.codigo_cliente) INTO v_total
+  FROM pedido p
+  INNER JOIN item_do_pedido ip ON p.numero_pedido = ip.num_pedido
+  WHERE ip.codigo_produto = p_codigo_produto;
+
+  RETURN COALESCE(v_total, 0);
+END;
+$$ LANGUAGE plpgsql;
+
 --7. Fazer uma trigger para ser disparada após a remoção de uma linha na tabela "item_do_pedido" 
 --para atualizar a quantidade na tabela de produto(coluna quantidade_em_estoque).
+CREATE OR REPLACE FUNCTION atualiza_quantidade_em_estoque() RETURNS TRIGGER AS
+$$
+BEGIN
+  UPDATE produto
+  SET quantidade_em_estoque = quantidade_em_estoque + OLD.quantidade
+  WHERE codigo_produto = OLD.codigo_produto;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER after_delete_item_do_pedido
+AFTER DELETE ON item_do_pedido
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_quantidade_em_estoque_delete();
+
 --9. adicionar a coluna valor_total_pedido (do tipo numeric(10,2) ) na tabela pedido.
---11. Fazer uma dml para inserir 5 pedidos completos(pedido e item_do_pedido(pelo menos 3 itens))
---Rodar a sql select * from pedidos, e select * from produtos antes de inserir os pedidos e após cada inserção.
+ALTER TABLE pedido ADD COLUMN valor_total_pedido NUMERIC(10,2);
+
+--12. Fazer uma procedure(function sem retorno) que remova um pedido, a procedure deve receber como parametro o número do pedido
+--Rodar a select * from produtos antes de executar a procedure e após execução.
+
+CREATE OR REPLACE FUNCTION remover_pedido(p_numero_pedido int) RETURNS void AS
+$$
+BEGIN
+  DELETE FROM item_do_pedido WHERE num_pedido = p_numero_pedido;
+  DELETE FROM pedido WHERE numero_pedido = p_numero_pedido;
+END;
+$$ LANGUAGE plpgsql;
+

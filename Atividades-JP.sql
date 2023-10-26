@@ -27,5 +27,5 @@ CREATE OR REPLACE FUNCTION vendedor_quantidade_pedidos(smallint) returns bigint 
 --10. Fazer uma trigger para ser disparada após a inclusão, remoção e alteração na tabela "item_do_pedido" 
 --para atualizar o valor total do pedido na tabela pedido(coluna valor_total_pedido). 
 
---12. Fazer uma procedure(function sem retorno) que remova um pedido, a procedure deve receber como parametro o número do pedido
---Rodar a select * from produtos antes de executar a procedure e após execução.
+--11. Fazer uma dml para inserir 5 pedidos completos(pedido e item_do_pedido(pelo menos 3 itens))
+--Rodar a sql select * from pedidos, e select * from produtos antes de inserir os pedidos e após cada inserção.
